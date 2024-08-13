@@ -4,3 +4,8 @@ database:
   host: 192.168.102.60
   port: 3306
   name: codepub
+redis:
+  mode: single
+  address: 192.168.102.60:6379
+  password: ""
+  db: 1

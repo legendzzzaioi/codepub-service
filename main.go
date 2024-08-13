@@ -1,18 +1,19 @@
 package main
 
 import (
-	"codepub-service/middleware"
-	"codepub-service/model"
-	"codepub-service/routes"
 	"fmt"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"log"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+
+	"codepub-service/middleware"
+	"codepub-service/model"
+	"codepub-service/routes"
 )
 
 func main() {
@@ -25,14 +26,14 @@ func main() {
 	}
 
 	// 从配置文件读取数据库连接信息
-	user := viper.GetString("database.user")
-	password := viper.GetString("database.password")
-	host := viper.GetString("database.host")
-	port := viper.GetInt("database.port")
-	name := viper.GetString("database.name")
+	mysqlUser := viper.GetString("database.user")
+	mysqlPassword := viper.GetString("database.password")
+	mysqlHost := viper.GetString("database.host")
+	mysqlPort := viper.GetInt("database.port")
+	mysqlName := viper.GetString("database.name")
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		user, password, host, port, name)
+		mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlName)
 
 	var err error
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
@@ -53,11 +54,19 @@ func main() {
 	// 初始化jenkins_config表
 	model.InitJenkinsDB(db)
 
+	// 从配置文件读取redis连接信息
+	redisAddr := viper.GetString("redis.address")
+	redisPassword := viper.GetString("redis.password")
+	redisDB := viper.GetInt("redis.db")
+
 	// 创建Gin路由
 	r := gin.Default()
 
 	// 设置会话存储
-	store := cookie.NewStore([]byte("secret"))
+	store, err := redis.NewStoreWithDB(10, "tcp", redisAddr, redisPassword, fmt.Sprintf("%d", redisDB), []byte("secret"))
+	if err != nil {
+		log.Fatalf("Failed to create Redis store: %v", err)
+	}
 
 	// 配置会话选项
 	store.Options(sessions.Options{
